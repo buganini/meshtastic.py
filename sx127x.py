@@ -75,11 +75,46 @@ class SX127x:
         LORA_CAD = 7
 
     PRESETS = {
+        "SHORT_FAST": {
+            "bw": BandWidth.BW_250K,
+            "sf": SpreadingFactor.SF_128,
+            "cr": CodingRate.CR_4_8,
+        },
+        "SHORT_SLOW": {
+            "bw": BandWidth.BW_250K,
+            "sf": SpreadingFactor.SF_256,
+            "cr": CodingRate.CR_4_8,
+        },
+        "MID_FAST": {
+            "bw": BandWidth.BW_250K,
+            "sf": SpreadingFactor.SF_512,
+            "cr": CodingRate.CR_4_8,
+        },
+        "MID_SLOW": {
+            "bw": BandWidth.BW_250K,
+            "sf": SpreadingFactor.SF_1024,
+            "cr": CodingRate.CR_4_8,
+        },
         "LONG_FAST": {
             "bw": BandWidth.BW_250K,
             "sf": SpreadingFactor.SF_2048,
-            "cr": CodingRate.CR_4_5,
-        }
+            "cr": CodingRate.CR_4_8,
+        },
+        "LONG_MODERATE": {
+            "bw": BandWidth.BW_125K,
+            "sf": SpreadingFactor.SF_2048,
+            "cr": CodingRate.CR_4_8,
+        },
+        "LONG_SLOW": {
+            "bw": BandWidth.BW_125K,
+            "sf": SpreadingFactor.SF_4096,
+            "cr": CodingRate.CR_4_8,
+        },
+        "VERY_LONG_SLOW": {
+            "bw": BandWidth.BW_62_5K,
+            "sf": SpreadingFactor.SF_4096,
+            "cr": CodingRate.CR_4_8,
+        },
     }
 
     REGION = {
