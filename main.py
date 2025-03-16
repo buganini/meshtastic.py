@@ -72,20 +72,7 @@ def main():
     sx = SX127x(1)
     sx.standby()
 
-    # TW
-    sx.setFrequency(923.875e6) # slot16
-
-    # Long-Fast
-    sx.setBandwidth(SX127x.BandWidth.BW_250K)
-    sx.setSpreadingFactor(SX127x.SpreadingFactor.SF_2048)
-    sx.setCodingRate(SX127x.CodingRate.CR_4_5)
-
-    sx.setImplicitHeader(False)
-    sx.setTxContinuous(False)
-    sx.setCrc(True)
-    sx.setSync(b"\x2b")
-    sx.setTxPower(True, 0)
-    sx.setPreambleLength(16)
+    sx.meshtastic("TW", "LONG_FAST")
 
     while True:
         sx.receive()

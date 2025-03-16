@@ -74,6 +74,20 @@ class SX127x:
         LORA_RX_SINGLE = 6
         LORA_CAD = 7
 
+    PRESETS = {
+        "LONG_FAST": {
+            "bw": BandWidth.BW_250K,
+            "sf": SpreadingFactor.SF_2048,
+            "cr": CodingRate.CR_4_5,
+        }
+    }
+
+    REGION = {
+        "TW": {
+            "freq": 923.875e6, # slot16
+        }
+    }
+
     def __init__(self, device=None):
         from pyftdi.spi import SpiController
 
@@ -209,6 +223,23 @@ class SX127x:
         payload = bytes(payload)
         return payload
 
+    def meshtastic(self, region="TW", preset="LONG_FAST"):
+        regionCfg = SX127x.REGION.get(region, "TW")
+        presetCfg = SX127x.PRESETS.get(preset, "LONG_FAST")
+
+        self.setFrequency(regionCfg["freq"])
+
+        self.setBandwidth(presetCfg["bw"])
+        self.setSpreadingFactor(presetCfg["sf"])
+        self.setCodingRate(presetCfg["cr"])
+
+        self.setImplicitHeader(False)
+        self.setTxContinuous(False)
+        self.setCrc(True)
+        self.setSync(b"\x2b")
+        self.setTxPower(True, 0)
+        self.setPreambleLength(16)
+
 if __name__ == "__main__":
     import sys
     from datetime import datetime
@@ -229,23 +260,7 @@ if __name__ == "__main__":
     sx = SX127x(device)
     sx.standby()
 
-    # TW
-    sx.setFrequency(923.875e6) # slot16
-
-    # Long-Fast
-    sx.setBandwidth(SX127x.BandWidth.BW_250K)
-    sx.setSpreadingFactor(SX127x.SpreadingFactor.SF_2048)
-    sx.setCodingRate(SX127x.CodingRate.CR_4_5)
-
-    sx.setImplicitHeader(False)
-    sx.setTxContinuous(False)
-    sx.setCrc(True)
-    sx.setSync(b"\x2b")
-    sx.setTxPower(True, 0)
-    sx.setPreambleLength(16)
-
-    if action == "tx":
-        pass
+    sx.meshtastic("TW", "LONG_FAST")
 
     if action == "rx":
         while True:
