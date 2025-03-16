@@ -107,13 +107,19 @@ class SX127x:
         self.slave.write([0x80 | SX127x.REG_OPMODE, SX127x.OPMODE_LONGRANGE | SX127x.DeviceMode.LORA_SLEEP])
 
 
-    def wait_irq(self):
+    def wait_data(self):
         while True:
             irq = self.slave.exchange([SX127x.REG_IRQFLAGS], 1)[0]
             # print(f"IRQ: {irq:08b}")
+            if irq & SX127x.IRQ.RX_TIMEOUT:
+                self.slave.write([0x80 | SX127x.REG_IRQFLAGS, SX127x.IRQ.RX_TIMEOUT])
+                return None
+            if irq & SX127x.IRQ.PAYLOAD_CRC_ERROR:
+                self.slave.write([0x80 | SX127x.REG_IRQFLAGS, SX127x.IRQ.PAYLOAD_CRC_ERROR])
+                return False
             if irq & SX127x.IRQ.RX_DONE:
                 self.slave.write([0x80 | SX127x.REG_IRQFLAGS, SX127x.IRQ.RX_DONE])
-                break
+                return True
 
     def setFrequency(self, freq):
         frf = int(freq * (2**19) / SX127x.Fxosc)
@@ -174,7 +180,7 @@ class SX127x:
         self.slave.write([0x80 | SX127x.REG_OPMODE, SX127x.OPMODE_LONGRANGE | SX127x.DeviceMode.LORA_STANDBY])
 
     def receive(self):
-        self.slave.write([0x80 | SX127x.REG_OPMODE, SX127x.OPMODE_LONGRANGE | SX127x.DeviceMode.LORA_RX_CONTINUOUS])
+        self.slave.write([0x80 | SX127x.REG_OPMODE, SX127x.OPMODE_LONGRANGE | SX127x.DeviceMode.LORA_RX_SINGLE])
 
     def read_version(self):
         return self.slave.exchange([SX127x.REG_VERSION], 1)[0]
@@ -201,8 +207,6 @@ class SX127x:
             payload.append(self.slave.exchange([SX127x.REG_FIFO], 1)[0])
 
         payload = bytes(payload)
-        payload = payload.strip(b"\x00")
-
         return payload
 
 if __name__ == "__main__":
@@ -247,7 +251,10 @@ if __name__ == "__main__":
     if action == "rx":
         while True:
             sx.receive()
-            sx.wait_irq()
+            crcError = sx.wait_data()
+            if crcError is None:
+                print("Timeout")
+                continue
+
             data = sx.read_payload()
-            if data:
-                print(datetime.now().strftime("[%Y-%m-%d %H:%M:%S]"), data)
+            print(datetime.now().strftime("[%Y-%m-%d %H:%M:%S]"), "NG" if crcError else "OK", data)
