@@ -230,7 +230,6 @@ if __name__ == "__main__":
     sx.standby()
 
     # TW
-    # sx.setFrequency(920.125e6) # slot1
     sx.setFrequency(923.875e6) # slot16
 
     # Long-Fast
