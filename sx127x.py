@@ -74,31 +74,37 @@ class SX127x:
         LORA_RX_SINGLE = 6
         LORA_CAD = 7
 
+    # https://meshtastic.org/docs/overview/radio-settings/#presets
     PRESETS = {
+        "SHORT_TURBO": {
+            "bw": BandWidth.BW_500K,
+            "sf": SpreadingFactor.SF_128,
+            "cr": CodingRate.CR_4_5,
+        },
         "SHORT_FAST": {
             "bw": BandWidth.BW_250K,
             "sf": SpreadingFactor.SF_128,
-            "cr": CodingRate.CR_4_8,
+            "cr": CodingRate.CR_4_5,
         },
         "SHORT_SLOW": {
             "bw": BandWidth.BW_250K,
             "sf": SpreadingFactor.SF_256,
-            "cr": CodingRate.CR_4_8,
+            "cr": CodingRate.CR_4_5,
         },
         "MID_FAST": {
             "bw": BandWidth.BW_250K,
             "sf": SpreadingFactor.SF_512,
-            "cr": CodingRate.CR_4_8,
+            "cr": CodingRate.CR_4_5,
         },
         "MID_SLOW": {
             "bw": BandWidth.BW_250K,
             "sf": SpreadingFactor.SF_1024,
-            "cr": CodingRate.CR_4_8,
+            "cr": CodingRate.CR_4_5,
         },
         "LONG_FAST": {
             "bw": BandWidth.BW_250K,
             "sf": SpreadingFactor.SF_2048,
-            "cr": CodingRate.CR_4_8,
+            "cr": CodingRate.CR_4_5,
         },
         "LONG_MODERATE": {
             "bw": BandWidth.BW_125K,
