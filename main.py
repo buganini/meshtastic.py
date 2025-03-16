@@ -30,8 +30,6 @@ class MeshPacket:
         except:
             self.packetData = None
 
-        print(self.packetData, dir(self.packetData))
-
         self.protocolData = None
         if self.packetData is not None:
             handler = meshtastic.protocols.get(self.packetData.portnum)
@@ -61,7 +59,8 @@ class MeshPacket:
         print("Encrypted Payload:", self.encryptedPayload)
         print("Packet Payload:", self.packetPayload)
         print("Packet Data:", self.packetData)
-        print("Protocol Payload:", self.packetData.payload)
+        if self.packetData:
+            print("Protocol Payload:", self.packetData.payload)
         print("Protocol Data:", self.protocolData)
 
 
