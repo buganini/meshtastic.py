@@ -130,12 +130,16 @@ class SX127x:
     }
 
     def __init__(self, device=None):
+        from pyftdi.usbtools import UsbTools
+        from pyftdi.ftdi import Ftdi
         from pyftdi.spi import SpiController
 
         if device is None:
             device = 'ftdi://::/1'
         elif type(device) == int:
-            device = f'ftdi://::/{device}'
+            devs = [f'ftdi://{d[0].vid}:{d[0].pid}:{d[0].bus}:{d[0].address}/1' for d in Ftdi.list_devices()]
+            print(devs)
+            device = devs[device]
 
         self.spi = SpiController()
         self.spi.configure(device)
@@ -162,9 +166,12 @@ class SX127x:
         self.slave.write([0x80 | SX127x.REG_OPMODE, SX127x.OPMODE_LONGRANGE | SX127x.DeviceMode.LORA_SLEEP])
 
 
-    def wait_data(self):
+    def wait_rx(self):
         while True:
-            irq = self.slave.exchange([SX127x.REG_IRQFLAGS], 1)[0]
+            irq = None
+            while not irq:
+                irq = self.slave.exchange([SX127x.REG_IRQFLAGS], 1)
+            irq = irq[0]
             # print(f"IRQ: {irq:08b}")
             if irq & SX127x.IRQ.RX_TIMEOUT:
                 self.slave.write([0x80 | SX127x.REG_IRQFLAGS, SX127x.IRQ.RX_TIMEOUT])
@@ -235,7 +242,14 @@ class SX127x:
         self.slave.write([0x80 | SX127x.REG_OPMODE, SX127x.OPMODE_LONGRANGE | SX127x.DeviceMode.LORA_STANDBY])
 
     def receive(self):
-        self.slave.write([0x80 | SX127x.REG_OPMODE, SX127x.OPMODE_LONGRANGE | SX127x.DeviceMode.LORA_RX_SINGLE])
+        while True:
+            self.slave.write([0x80 | SX127x.REG_OPMODE, SX127x.OPMODE_LONGRANGE | SX127x.DeviceMode.LORA_RX_SINGLE])
+            r = None
+            while not r:
+                r = self.slave.exchange([SX127x.REG_OPMODE], 1)
+            if r[0] == SX127x.OPMODE_LONGRANGE | SX127x.DeviceMode.LORA_RX_SINGLE:
+                break
+            time.sleep(0.001)
 
     def read_version(self):
         return self.slave.exchange([SX127x.REG_VERSION], 1)[0]
@@ -263,6 +277,28 @@ class SX127x:
 
         payload = bytes(payload)
         return payload
+
+    def send(self, data):
+        print("Send", data, len(data))
+        self.slave.write([0x80 | SX127x.REG_OPMODE, SX127x.OPMODE_LONGRANGE | SX127x.DeviceMode.LORA_STANDBY])
+        fifoTxBaseAddr = self.slave.exchange([SX127x.REG_FIFOTXBASEADDR], 1)[0]
+        print("fifoTxBaseAddr", fifoTxBaseAddr)
+        self.slave.write([0x80 | SX127x.REG_FIFOADDRPTR, fifoTxBaseAddr])
+        for i in range(len(data)):
+            self.slave.write([0x80 | SX127x.REG_FIFO, data[i]])
+        self.slave.write([0x80 | SX127x.REG_PAYLOADLENGTH, len(data)])
+        self.slave.write([0x80 | SX127x.REG_OPMODE, SX127x.OPMODE_LONGRANGE | SX127x.DeviceMode.LORA_TX])
+
+        while True:
+            irq = None
+            while not irq:
+                irq = self.slave.exchange([SX127x.REG_IRQFLAGS], 1)
+            irq = irq[0]
+            # print(f"IRQ: {irq:08b}")
+            if irq & SX127x.IRQ.TX_DONE:
+                self.slave.write([0x80 | SX127x.REG_IRQFLAGS, SX127x.IRQ.TX_DONE])
+                print("TX Done")
+                break
 
     def meshtastic(self, region="TW", preset="LONG_FAST"):
         regionCfg = SX127x.REGION.get(region, "TW")
@@ -303,10 +339,13 @@ if __name__ == "__main__":
 
     sx.meshtastic("TW", "LONG_FAST")
 
+    if action == "tx":
+        sx.send(b'\xff\xff\xff\xffp\x87\xa8\xbb\xe0\xa5/^c\x08\x00\x00\x01\x8ey=\x87\xfc4\xdc\xbd#')
+
     if action == "rx":
         while True:
             sx.receive()
-            crcError = sx.wait_data()
+            crcError = sx.wait_rx()
             if crcError is None:
                 print("Timeout")
                 continue

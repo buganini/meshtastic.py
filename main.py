@@ -75,7 +75,9 @@ def main():
 
     while True:
         sx.receive()
-        crcError = sx.wait_data()
+        print("Receive")
+        crcError = sx.wait_rx()
+        print("Wait rx")
         if crcError is None:
             print("Timeout")
             continue
