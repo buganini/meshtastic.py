@@ -49,6 +49,19 @@ class SX127x:
         BW_250K = 8
         BW_500K = 9
 
+    BandWidthMap = {
+        BandWidth.BW_7_8K: 7.8e3,
+        BandWidth.BW_10_4K: 10.4e3,
+        BandWidth.BW_15_6K: 15.6e3,
+        BandWidth.BW_20_8K: 20.8e3,
+        BandWidth.BW_31_25K: 31.25e3,
+        BandWidth.BW_41_7K: 41.7e3,
+        BandWidth.BW_62_5K: 62.5e3,
+        BandWidth.BW_125K: 125e3,
+        BandWidth.BW_250K: 250e3,
+        BandWidth.BW_500K: 500e3,
+    }
+
     class CodingRate(IntEnum):
         CR_4_5 = 1
         CR_4_6 = 2
@@ -76,11 +89,6 @@ class SX127x:
 
     # https://meshtastic.org/docs/overview/radio-settings/#presets
     PRESETS = {
-        "SHORT_TURBO": {
-            "bw": BandWidth.BW_500K,
-            "sf": SpreadingFactor.SF_128,
-            "cr": CodingRate.CR_4_5,
-        },
         "SHORT_FAST": {
             "bw": BandWidth.BW_250K,
             "sf": SpreadingFactor.SF_128,
@@ -123,9 +131,14 @@ class SX127x:
         },
     }
 
+    # https://meshtastic.org/docs/configuration/radio/lora/#region
+    # https://meshtastic.org/docs/configuration/tips/#default-primary-frequency-slots-by-region
     REGION = {
         "TW": {
-            "freq": 923.875e6, # slot16
+            "startFreq": 920e6,
+            "endFreq": 925e6,
+            "spacing": 0,
+            "defaultSlot": 16,
         }
     }
 
@@ -304,7 +317,13 @@ class SX127x:
         regionCfg = SX127x.REGION.get(region, "TW")
         presetCfg = SX127x.PRESETS.get(preset, "LONG_FAST")
 
-        self.setFrequency(regionCfg["freq"])
+        print("regionCfg", regionCfg)
+        print("presetCfg", presetCfg)
+
+        bw = SX127x.BandWidthMap[presetCfg["bw"]]
+        defaultFreq = regionCfg["startFreq"] + bw/2 + bw*(regionCfg["defaultSlot"]-1)
+
+        self.setFrequency(defaultFreq)
 
         self.setBandwidth(presetCfg["bw"])
         self.setSpreadingFactor(presetCfg["sf"])
