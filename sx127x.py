@@ -1,5 +1,6 @@
 import time
 from enum import IntEnum
+from radio import LoRa, Meshtastic
 
 class SX127x:
     GPIO_RST = 1<<4
@@ -21,8 +22,7 @@ class SX127x:
     REG_MODEMCONFIG2 = 0x1E
     REG_PREAMBLE = 0x20
     REG_PAYLOADLENGTH = 0x22
-    REG_SYNCCONFIG = 0x27
-    REG_SYNCVALUE = 0x28
+    REG_SYNCVALUE = 0x39
     REG_VERSION = 0x42
 
     OPMODE_LONGRANGE = 0x80
@@ -37,46 +37,6 @@ class SX127x:
         FHSS_CHANGE_CHANNEL = 1 << 1
         CAD_DETECTED = 1 << 0
 
-    class BandWidth(IntEnum):
-        BW_7_8K = 0
-        BW_10_4K = 1
-        BW_15_6K = 2
-        BW_20_8K = 3
-        BW_31_25K = 4
-        BW_41_7K = 5
-        BW_62_5K = 6
-        BW_125K = 7
-        BW_250K = 8
-        BW_500K = 9
-
-    BandWidthMap = {
-        BandWidth.BW_7_8K: 7.8e3,
-        BandWidth.BW_10_4K: 10.4e3,
-        BandWidth.BW_15_6K: 15.6e3,
-        BandWidth.BW_20_8K: 20.8e3,
-        BandWidth.BW_31_25K: 31.25e3,
-        BandWidth.BW_41_7K: 41.7e3,
-        BandWidth.BW_62_5K: 62.5e3,
-        BandWidth.BW_125K: 125e3,
-        BandWidth.BW_250K: 250e3,
-        BandWidth.BW_500K: 500e3,
-    }
-
-    class CodingRate(IntEnum):
-        CR_4_5 = 1
-        CR_4_6 = 2
-        CR_4_7 = 3
-        CR_4_8 = 4
-
-    class SpreadingFactor(IntEnum):
-        SF_64 = 6
-        SF_128 = 7
-        SF_256 = 8
-        SF_512 = 9
-        SF_1024 = 10
-        SF_2048 = 11
-        SF_4096 = 12
-
     class DeviceMode(IntEnum):
         LORA_SLEEP = 0
         LORA_STANDBY = 1
@@ -86,61 +46,6 @@ class SX127x:
         LORA_RX_CONTINUOUS = 5
         LORA_RX_SINGLE = 6
         LORA_CAD = 7
-
-    # https://meshtastic.org/docs/overview/radio-settings/#presets
-    PRESETS = {
-        "SHORT_FAST": {
-            "bw": BandWidth.BW_250K,
-            "sf": SpreadingFactor.SF_128,
-            "cr": CodingRate.CR_4_5,
-        },
-        "SHORT_SLOW": {
-            "bw": BandWidth.BW_250K,
-            "sf": SpreadingFactor.SF_256,
-            "cr": CodingRate.CR_4_5,
-        },
-        "MID_FAST": {
-            "bw": BandWidth.BW_250K,
-            "sf": SpreadingFactor.SF_512,
-            "cr": CodingRate.CR_4_5,
-        },
-        "MID_SLOW": {
-            "bw": BandWidth.BW_250K,
-            "sf": SpreadingFactor.SF_1024,
-            "cr": CodingRate.CR_4_5,
-        },
-        "LONG_FAST": {
-            "bw": BandWidth.BW_250K,
-            "sf": SpreadingFactor.SF_2048,
-            "cr": CodingRate.CR_4_5,
-        },
-        "LONG_MODERATE": {
-            "bw": BandWidth.BW_125K,
-            "sf": SpreadingFactor.SF_2048,
-            "cr": CodingRate.CR_4_8,
-        },
-        "LONG_SLOW": {
-            "bw": BandWidth.BW_125K,
-            "sf": SpreadingFactor.SF_4096,
-            "cr": CodingRate.CR_4_8,
-        },
-        "VERY_LONG_SLOW": {
-            "bw": BandWidth.BW_62_5K,
-            "sf": SpreadingFactor.SF_4096,
-            "cr": CodingRate.CR_4_8,
-        },
-    }
-
-    # https://meshtastic.org/docs/configuration/radio/lora/#region
-    # https://meshtastic.org/docs/configuration/tips/#default-primary-frequency-slots-by-region
-    REGION = {
-        "TW": {
-            "startFreq": 920e6,
-            "endFreq": 925e6,
-            "spacing": 0,
-            "defaultSlot": 16,
-        }
-    }
 
     def __init__(self, device=None):
         from pyftdi.usbtools import UsbTools
@@ -169,15 +74,14 @@ class SX127x:
         if version != 0x12:
             raise Exception(f"SX127x: Invalid version {version}")
 
-        self.bw = SX127x.BandWidth.BW_125K
-        self.cr = SX127x.CodingRate.CR_4_5
+        self.bw = LoRa.BandWidth.BW_125K
+        self.cr = LoRa.CodingRate.CR_4_5
         self.implicitHeader = False
-        self.sf = SX127x.SpreadingFactor.SF_128
+        self.sf = LoRa.SpreadingFactor.SF_128
         self.txCont = False
         self.crc = True
-        self.sync = b""
+        self.sync = 0x12
         self.slave.write([0x80 | SX127x.REG_OPMODE, SX127x.OPMODE_LONGRANGE | SX127x.DeviceMode.LORA_SLEEP])
-
 
     def wait_rx(self):
         while True:
@@ -204,17 +108,15 @@ class SX127x:
         self.slave.write([0x80 | SX127x.REG_FRF+1, frf[1]])
         self.slave.write([0x80 | SX127x.REG_FRF+2, frf[2]])
 
-    def setSync(self, value = None):
-        self.sync = value
-        self.slave.write(bytes([0x80 | SX127x.REG_SYNCVALUE]) + value)
-        syncOn = 0 if value is None else 1
-        self.slave.write([0x80 | SX127x.REG_SYNCCONFIG, (syncOn << 4) | (len(value) - 1)])
+    def setSync(self, value = 0x12):
+        self.sync = value & 0xFF
+        self.slave.write([0x80 | SX127x.REG_SYNCVALUE, self.sync])
 
-    def setBandwidth(self, bw: BandWidth):
+    def setBandwidth(self, bw: LoRa.BandWidth):
         self.bw = bw
         self.setModemConfig1()
 
-    def setCodingRate(self, cr: CodingRate):
+    def setCodingRate(self, cr: LoRa.CodingRate):
         self.cr = cr
         self.setModemConfig1()
 
@@ -222,7 +124,9 @@ class SX127x:
         self.implicitHeader = implicitHeader
         self.setModemConfig1()
 
-    def setSpreadingFactor(self, sf: SpreadingFactor):
+    def setSpreadingFactor(self, sf: LoRa.SpreadingFactor):
+        if sf < 6:
+            raise Exception(f"SX127x: Invalid spreading factor {sf}")
         self.sf = sf
         self.setModemConfig2()
 
@@ -256,11 +160,11 @@ class SX127x:
 
     def receive(self):
         while True:
-            self.slave.write([0x80 | SX127x.REG_OPMODE, SX127x.OPMODE_LONGRANGE | SX127x.DeviceMode.LORA_RX_SINGLE])
+            self.slave.write([0x80 | SX127x.REG_OPMODE, SX127x.OPMODE_LONGRANGE | SX127x.DeviceMode.LORA_RX_CONTINUOUS])
             r = None
             while not r:
                 r = self.slave.exchange([SX127x.REG_OPMODE], 1)
-            if r[0] == SX127x.OPMODE_LONGRANGE | SX127x.DeviceMode.LORA_RX_SINGLE:
+            if r[0] == SX127x.OPMODE_LONGRANGE | SX127x.DeviceMode.LORA_RX_CONTINUOUS:
                 break
             time.sleep(0.001)
 
@@ -314,13 +218,13 @@ class SX127x:
                 break
 
     def meshtastic(self, region="TW", preset="LONG_FAST"):
-        regionCfg = SX127x.REGION.get(region, "TW")
-        presetCfg = SX127x.PRESETS.get(preset, "LONG_FAST")
+        regionCfg = Meshtastic.REGION.get(region, "TW")
+        presetCfg = Meshtastic.PRESETS.get(preset, "LONG_FAST")
 
         print("regionCfg", regionCfg)
         print("presetCfg", presetCfg)
 
-        bw = SX127x.BandWidthMap[presetCfg["bw"]]
+        bw = LoRa.BandWidthMap[presetCfg["bw"]]
         defaultFreq = regionCfg["startFreq"] + bw/2 + bw*(regionCfg["defaultSlot"]-1)
 
         self.setFrequency(defaultFreq)
@@ -332,7 +236,7 @@ class SX127x:
         self.setImplicitHeader(False)
         self.setTxContinuous(False)
         self.setCrc(True)
-        self.setSync(b"\x2b")
+        self.setSync(0x2B)
         self.setTxPower(True, 0)
         self.setPreambleLength(16)
 
@@ -362,8 +266,8 @@ if __name__ == "__main__":
         sx.send(b'\xff\xff\xff\xffp\x87\xa8\xbb\xe0\xa5/^c\x08\x00\x00\x01\x8ey=\x87\xfc4\xdc\xbd#')
 
     if action == "rx":
+        sx.receive()
         while True:
-            sx.receive()
             crcError = sx.wait_rx()
             if crcError is None:
                 print("Timeout")

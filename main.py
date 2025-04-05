@@ -1,9 +1,11 @@
 import sys
 import base64
+import radio
 import meshtastic
 from meshtastic.protobuf import mesh_pb2
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
+import time
 
 DEFAULT_KEY = "1PG7OiApB1nwvP+rz05pAQ=="
 
@@ -12,7 +14,11 @@ class MeshPacket:
         self.dest = data[0:4]
         self.sender = data[4:8]
         self.packetID = data[8:12]
-        self.flags = data[12:13]
+        self.flags = data[12:13][0]
+        self.hopLimit = self.flags & 0b111
+        self.wantAck = (self.flags >> 3) & 0b1
+        self.viaMQTT = (self.flags >> 4) & 0b1
+        self.hopStart = (self.flags >> 5) & 0b111
         self.channelHash = data[13:14]
         self.nextHop = data[14:15]
         self.relayNode = data[15:16]
@@ -48,11 +54,25 @@ class MeshPacket:
                     import traceback
                     traceback.print_exc()
 
+    def rebroadcast(self):
+        if self.hopLimit == 0:
+            return None
+        else:
+            flags = self.hopLimit << 5
+            flags |= self.viaMQTT << 4
+            flags |= self.wantAck << 3
+            flags |= (self.hopLimit - 1)
+            return self.dest + self.sender + self.packetID + bytes([flags]) + self.channelHash + self.nextHop + self.relayNode + self.encryptedPayload
+
     def print(self):
         print("Dest:", self.dest)
         print("Sender:", self.sender)
         print("Packet ID:", self.packetID)
-        print("Flags:", self.flags)
+        # print("Flags:", self.flags)
+        print("Hop Limit:", self.hopLimit)
+        print("Want Ack:", self.wantAck)
+        print("Via MQTT:", self.viaMQTT)
+        print("Hop Start:", self.hopStart)
         print("Channel Hash:", self.channelHash)
         print("Next Hop:", self.nextHop)
         print("Relay Node:", self.relayNode)
@@ -68,13 +88,13 @@ def main():
     from sx127x import SX127x
     from datetime import datetime
 
-    sx = SX127x(1)
+    sx = SX127x(0)
     sx.standby()
 
     sx.meshtastic("TW", "LONG_FAST")
 
+    sx.receive()
     while True:
-        sx.receive()
         print("Receive")
         crcError = sx.wait_rx()
         print("Wait rx")
@@ -82,10 +102,23 @@ def main():
             print("Timeout")
             continue
 
-        data = sx.read_payload()
-        print(datetime.now().strftime("[%Y-%m-%d %H:%M:%S]"), "NG" if crcError else "OK", data)
-        data = MeshPacket(data, DEFAULT_KEY)
+        payload = sx.read_payload()
+        print(datetime.now().strftime("[%Y-%m-%d %H:%M:%S]"), "NG" if crcError else "OK", payload)
+        if len(payload) < 16:
+            continue
+
+        data = MeshPacket(payload, DEFAULT_KEY)
         data.print()
+
+        rebroadcast = data.rebroadcast()
+        if rebroadcast is not None:
+            print("<rebroadcast>")
+            r = MeshPacket(rebroadcast, DEFAULT_KEY)
+            r.print()
+            print("</rebroadcast>")
+            for i in range(10):
+                sx.send(rebroadcast)
+                time.sleep(3)
 
 if __name__ == "__main__":
     if sys.argv[1:] == ["test"]:
