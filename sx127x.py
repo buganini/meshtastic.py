@@ -83,14 +83,15 @@ class SX127x:
         self.sync = 0x12
         self.slave.write([0x80 | SX127x.REG_OPMODE, SX127x.OPMODE_LONGRANGE | SX127x.DeviceMode.LORA_SLEEP])
 
-    def wait_rx(self):
+    def wait_rx(self, timeout=3):
         """
         Return:
             True if RX_DONE
             False if CRC_ERROR
             None if RX_TIMEOUT
         """
-        while True:
+        t0 = time.time()
+        while time.time() - t0 < timeout:
             irq = None
             while not irq:
                 irq = self.slave.exchange([SX127x.REG_IRQFLAGS], 1)
@@ -105,6 +106,7 @@ class SX127x:
             if irq & SX127x.IRQ.RX_DONE:
                 self.slave.write([0x80 | SX127x.REG_IRQFLAGS, SX127x.IRQ.RX_DONE])
                 return True
+            # time.sleep(0.1)
 
     def setFrequency(self, freq):
         frf = int(freq * (2**19) / SX127x.Fxosc)
@@ -162,11 +164,12 @@ class SX127x:
         self.setModemConfig1()
         self.setModemConfig2()
         while True:
-            self.slave.write([0x80 | SX127x.REG_OPMODE, SX127x.OPMODE_LONGRANGE | SX127x.DeviceMode.LORA_RX_CONTINUOUS])
+            target = SX127x.OPMODE_LONGRANGE | SX127x.DeviceMode.LORA_RX_CONTINUOUS
+            self.slave.write([0x80 | SX127x.REG_OPMODE, target])
             r = None
             while not r:
                 r = self.slave.exchange([SX127x.REG_OPMODE], 1)
-            if r[0] == SX127x.OPMODE_LONGRANGE | SX127x.DeviceMode.LORA_RX_CONTINUOUS:
+            if r[0] == target:
                 break
             time.sleep(0.001)
 
@@ -198,10 +201,10 @@ class SX127x:
         return payload
 
     def send(self, data):
-        print("Send", data, len(data))
+        # print("Send", data, len(data))
         self.slave.write([0x80 | SX127x.REG_OPMODE, SX127x.OPMODE_LONGRANGE | SX127x.DeviceMode.LORA_STANDBY])
         fifoTxBaseAddr = self.slave.exchange([SX127x.REG_FIFOTXBASEADDR], 1)[0]
-        print("fifoTxBaseAddr", fifoTxBaseAddr)
+        # print("fifoTxBaseAddr", fifoTxBaseAddr)
         self.slave.write([0x80 | SX127x.REG_FIFOADDRPTR, fifoTxBaseAddr])
         for i in range(len(data)):
             self.slave.write([0x80 | SX127x.REG_FIFO, data[i]])
