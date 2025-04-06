@@ -111,7 +111,7 @@ class SX127x:
     def setFrequency(self, freq):
         frf = int(freq * (2**19) / SX127x.Fxosc)
         frf = ((frf >> 16) & 0xFF), ((frf >> 8) & 0xFF), (frf & 0xFF)
-        print("FRF", freq, frf)
+        # print("FRF", freq, frf)
         self.slave.write([0x80 | SX127x.REG_FRF, frf[0]])
         self.slave.write([0x80 | SX127x.REG_FRF+1, frf[1]])
         self.slave.write([0x80 | SX127x.REG_FRF+2, frf[2]])

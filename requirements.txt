@@ -1,3 +1,5 @@
 pyftdi
 cryptography
 meshtastic
+QPUIQ
+PySide6-Essentials
