@@ -20,8 +20,9 @@ class MeshtasticNode():
 
     def run(self):
         from datetime import datetime
-        self.device.receive()
         while True:
+            self.device.receive()
+
             now = time.time()
 
             print("Receive")
