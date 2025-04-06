@@ -1,4 +1,4 @@
-from meshtastic.protobuf import portnums_pb2
+from meshtastic.protobuf import mesh_pb2, portnums_pb2
 from common import *
 
 class Node():
@@ -44,7 +44,7 @@ class Node():
             node.state.long_name = packet.protocolData.long_name
             node.state.short_name = packet.protocolData.short_name
             node.state.macaddr = packet.protocolData.macaddr.hex()
-            node.state.hw_model = packet.protocolData.hw_model
+            node.state.hw_model = mesh_pb2.HardwareModel.Name(packet.protocolData.hw_model)
             node.state.public_key = packet.protocolData.public_key.hex()
         elif packet.packetData.portnum == portnums_pb2.PortNum.TEXT_MESSAGE_APP:
             node = cls.get(packet.sender)
