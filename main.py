@@ -76,14 +76,16 @@ class App(Application):
     def content(self):
         with Window(size=(640, 480)):
             with HBox():
-                with Scroll():
+                with Scroll().layout(width=150):
                     with VBox():
                         for node in Node.all.values():
-                            Label(f"{node.state.id} {node.state.short_name}").click(self.selectNode, node)
+                            if node.state.id is None:
+                                continue
+                            Label(f"{node.state.long_name}").click(self.selectNode, node)
                         Spacer()
 
                 if self.state.focus:
-                    with VBox():
+                    with VBox().layout(weight=1):
                         Label(f"ID: {self.state.focus.state.id}")
                         Label(f"Short Name: {self.state.focus.state.short_name}")
                         Label(f"Long Name: {self.state.focus.state.long_name}")
