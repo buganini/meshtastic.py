@@ -91,7 +91,7 @@ def main():
     sx = SX127x(0)
     sx.standby()
 
-    sx.meshtastic("TW", "LONG_FAST")
+    sx.setMeshtastic("TW", "LONG_FAST")
 
     sx.receive()
     while True:

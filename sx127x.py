@@ -84,6 +84,12 @@ class SX127x:
         self.slave.write([0x80 | SX127x.REG_OPMODE, SX127x.OPMODE_LONGRANGE | SX127x.DeviceMode.LORA_SLEEP])
 
     def wait_rx(self):
+        """
+        Return:
+            True if RX_DONE
+            False if CRC_ERROR
+            None if RX_TIMEOUT
+        """
         while True:
             irq = None
             while not irq:
@@ -114,29 +120,23 @@ class SX127x:
 
     def setBandwidth(self, bw: LoRa.BandWidth):
         self.bw = bw
-        self.setModemConfig1()
 
     def setCodingRate(self, cr: LoRa.CodingRate):
         self.cr = cr
-        self.setModemConfig1()
 
     def setImplicitHeader(self, implicitHeader: bool):
         self.implicitHeader = implicitHeader
-        self.setModemConfig1()
 
     def setSpreadingFactor(self, sf: LoRa.SpreadingFactor):
         if sf < 6:
             raise Exception(f"SX127x: Invalid spreading factor {sf}")
         self.sf = sf
-        self.setModemConfig2()
 
     def setTxContinuous(self, txCont: bool):
         self.txCont = txCont
-        self.setModemConfig2()
 
     def setCrc(self, crc: bool):
         self.crc = crc
-        self.setModemConfig2()
 
     def setTxPower(self, boost: bool, level):
         if boost:
@@ -159,6 +159,8 @@ class SX127x:
         self.slave.write([0x80 | SX127x.REG_OPMODE, SX127x.OPMODE_LONGRANGE | SX127x.DeviceMode.LORA_STANDBY])
 
     def receive(self):
+        self.setModemConfig1()
+        self.setModemConfig2()
         while True:
             self.slave.write([0x80 | SX127x.REG_OPMODE, SX127x.OPMODE_LONGRANGE | SX127x.DeviceMode.LORA_RX_CONTINUOUS])
             r = None
@@ -217,7 +219,7 @@ class SX127x:
                 print("TX Done")
                 break
 
-    def meshtastic(self, region="TW", preset="LONG_FAST"):
+    def setMeshtastic(self, region="TW", preset="LONG_FAST"):
         regionCfg = Meshtastic.REGION.get(region, "TW")
         presetCfg = Meshtastic.PRESETS.get(preset, "LONG_FAST")
 
@@ -260,7 +262,7 @@ if __name__ == "__main__":
     sx = SX127x(device)
     sx.standby()
 
-    sx.meshtastic("TW", "LONG_FAST")
+    sx.setMeshtastic("TW", "LONG_FAST")
 
     if action == "tx":
         sx.send(b'\xff\xff\xff\xffp\x87\xa8\xbb\xe0\xa5/^c\x08\x00\x00\x01\x8ey=\x87\xfc4\xdc\xbd#')
