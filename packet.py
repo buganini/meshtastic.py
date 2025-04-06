@@ -62,9 +62,9 @@ class MeshPacket:
             return self.dest + self.sender + self.packetID + bytes([flags]) + self.channelHash + self.nextHop + self.relayNode + self.encryptedPayload
 
     def print(self):
-        print("Dest:", self.dest)
-        print("Sender:", self.sender)
-        print("Packet ID:", self.packetID)
+        print("Dest:", self.dest.hex())
+        print("Sender:", self.sender.hex())
+        print("Packet ID:", self.packetID.hex())
         # print("Flags:", self.flags)
         print("Hop Limit:", self.hopLimit)
         print("Want Ack:", self.wantAck)
@@ -75,10 +75,23 @@ class MeshPacket:
         print("Relay Node:", self.relayNode)
         print("Encrypted Payload:", self.encryptedPayload)
         print("Packet Payload:", self.packetPayload)
-        print("Packet Data:", self.packetData)
+        print("Packet Data: {")
+        for descriptor in self.packetData.DESCRIPTOR.fields:
+            value = getattr(self.packetData, descriptor.name)
+            if descriptor.type == descriptor.TYPE_ENUM:
+                value = descriptor.enum_type.values[value].name
+            print(f"    {descriptor.name}: {value}")
+        print("}")
+
         if self.packetData:
             print("Protocol Payload:", self.packetData.payload)
-        print("Protocol Data:", self.protocolData)
+        print("Protocol Data: {")
+        for descriptor in self.protocolData.DESCRIPTOR.fields:
+            value = getattr(self.protocolData, descriptor.name)
+            if descriptor.type == descriptor.TYPE_ENUM:
+                value = descriptor.enum_type.values[value].name
+            print(f"    {descriptor.name}: {value}")
+        print("}")
 
 if __name__ == "__main__":
     # nodeinfo_app
