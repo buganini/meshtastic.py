@@ -48,7 +48,7 @@ class MeshtasticNode():
 
             self.txPool = [p for p in self.txPool if p.acked==0 or now - p.acked < PACKET_LOOKBACK_TTL]
 
-            todo = [p for p in self.txPool if p.acked==0]
+            todo = [p for p in self.txPool if p.acked==0 and p.retry>0]
             print("Todo", len(todo))
             todo.sort(key=lambda x:x.last)
             if todo:
