@@ -6,7 +6,7 @@ from packet import DEFAULT_KEY, MeshPacket
 import threading
 from common import *
 
-RETRY_INTERVAL = 1
+RETRY_INTERVAL = 7
 PACKET_LOOKBACK_TTL = 30
 class PendingTX():
     def __init__(self, packetID, payload, retry):
@@ -16,9 +16,12 @@ class PendingTX():
         self.last = 0
         self.acked = 0
 
-class MeshtasticNode():
-    def __init__(self, device):
+class Client():
+    def __init__(self, device, addr):
         self.device = device
+        self.addr = addr
+        self.state = State()
+        self.state.nodes = {}
         self.txPool = []
         self.thread = threading.Thread(target=self.looper, daemon=True)
         self.thread.start()
@@ -40,7 +43,7 @@ class MeshtasticNode():
                 if len(payload) < 16:
                     continue
 
-                packet = MeshPacket(payload, DEFAULT_KEY)
+                packet = MeshPacket.parse(payload, DEFAULT_KEY)
                 packet.print()
 
                 prev = [p for p in self.txPool if p.packetID == packet.packetID]
@@ -48,10 +51,10 @@ class MeshtasticNode():
                     for p in prev:
                         p.acked = now
                 else:
-                    Node.handle(packet)
+                    Node.handle(self.state.nodes, packet)
                     rebroadcast = packet.rebroadcast()
                     if rebroadcast:
-                        self.txPool.append(PendingTX(packet.packetID, rebroadcast, 5))
+                        self.txPool.append(PendingTX(packet.packetID, rebroadcast, 2))
 
             self.txPool = [p for p in self.txPool if p.acked==0 or now - p.acked < PACKET_LOOKBACK_TTL]
 
@@ -66,35 +69,62 @@ class MeshtasticNode():
                     p.last = now
                     p.retry -= 1
 
+    def send(self, dest, message):
+        packetPayload = mesh_pb2.Data()
+        packetPayload.portnum = portnums_pb2.PortNum.TEXT_MESSAGE_APP
+        packetPayload.payload = message.encode("utf-8")
+        packetPayload.want_response = False
+        packetPayload.dest = 0
+        packetPayload.source = 0
+        packetPayload.request_id = 0
+        packetPayload.reply_id = 0
+        packetPayload.emoji = 0
+        packetPayload.bitfield = 0
+        packet = MeshPacket.new(dest, self.addr, packetPayload, DEFAULT_KEY)
+        self.txPool.append(PendingTX(packet.packetID, packet.bytes, 3))
+
 class App(Application):
-    def __init__(self, node):
+    def __init__(self, client):
         super().__init__()
-        self.node = node
+        self.client = client
         self.state = State()
+        self.state.edit = ""
         self.state.focus = None
 
     def content(self):
         with Window(size=(640, 480)):
             with HBox():
-                with Scroll().layout(width=150):
-                    with VBox():
-                        for node in Node.all.values():
-                            if node.state.id is None:
-                                continue
-                            Label(f"{node.state.long_name}").click(self.selectNode, node)
-                        Spacer()
+                with VBox().layout(weight=1):
+                    with Scroll().layout(weight=1):
+                        with VBox():
+                            for node in self.client.state.nodes.values():
+                                if node.state.id is None:
+                                    continue
+                                Label(f"{node.state.long_name}").click(self.selectNode, node)
+                            Spacer()
 
-                if self.state.focus:
-                    with VBox().layout(weight=1):
-                        Label(f"ID: {self.state.focus.state.id}")
-                        Label(f"Short Name: {self.state.focus.state.short_name}")
-                        Label(f"Long Name: {self.state.focus.state.long_name}")
-                        Label(f"MAC Address: {self.state.focus.state.macaddr}")
-                        Label(f"Hardware Model: {self.state.focus.state.hw_model}")
-                        Label(f"Latitude: {self.state.focus.state.lat}")
-                        Label(f"Longitude: {self.state.focus.state.lng}")
-                        Label(f"Altitude: {self.state.focus.state.alt}")
-                        Spacer()
+                    if self.state.focus:
+                        with VBox():
+                            Label(f"ID: {self.state.focus.state.id}")
+                            Label(f"Short Name: {self.state.focus.state.short_name}")
+                            Label(f"Long Name: {self.state.focus.state.long_name}")
+                            Label(f"MAC Address: {self.state.focus.state.macaddr}")
+                            Label(f"Hardware Model: {self.state.focus.state.hw_model}")
+                            Label(f"Latitude: {self.state.focus.state.lat}")
+                            Label(f"Longitude: {self.state.focus.state.lng}")
+                            Label(f"Altitude: {self.state.focus.state.alt}")
+
+                with VBox().layout(weight=3):
+                    Spacer()
+                    with HBox():
+                        TextField(self.state("edit"), self.state("edit"))
+                        Button("Send").click(self.sendMessage)
+
+    def sendMessage(self, e):
+        if self.state.edit == "":
+            return
+        self.client.send(radio.Meshtastic.BROADCAST_ADDR, self.state.edit)
+        self.state.edit = ""
 
     def selectNode(self, e, node):
         self.state.focus = node
@@ -106,9 +136,9 @@ def main():
     sx.standby()
     sx.setMeshtastic("TW", "LONG_FAST")
 
-    node = MeshtasticNode(sx)
+    client = Client(sx, b"\x66\x55\x66\x55")
 
-    app = App(node)
+    app = App(client)
     app.run()
 
 if __name__ == "__main__":

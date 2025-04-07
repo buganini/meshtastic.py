@@ -43,6 +43,8 @@ class LoRa:
         SF_4096 = 12
 
 class Meshtastic:
+    BROADCAST_ADDR = b"\xff\xff\xff\xff"
+
     # https://meshtastic.org/docs/overview/radio-settings/#presets
     PRESETS = {
         "SHORT_FAST": {
