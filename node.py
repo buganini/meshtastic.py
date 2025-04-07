@@ -1,5 +1,9 @@
 from meshtastic.protobuf import mesh_pb2, portnums_pb2
 from common import *
+import os
+import json
+
+DEVICE_HARDWARE = json.load(open(os.path.join(os.path.dirname(__file__), "Meshtastic-Android/app/src/main/assets/device_hardware.json")))
 
 class Node():
     all = StateDict()
@@ -44,7 +48,13 @@ class Node():
             node.state.long_name = packet.protocolData.long_name
             node.state.short_name = packet.protocolData.short_name
             node.state.macaddr = packet.protocolData.macaddr.hex()
-            node.state.hw_model = mesh_pb2.HardwareModel.Name(packet.protocolData.hw_model)
+            # node.state.hw_model = mesh_pb2.HardwareModel.Name(packet.protocolData.hw_model)
+            models = [m for m in DEVICE_HARDWARE if m["hwModel"] == packet.protocolData.hw_model]
+            if len(models) > 0:
+                model = models[0]
+                node.state.hw_model = model["displayName"]
+            else:
+                node.state.hw_model = f"Unknown ({packet.protocolData.hw_model})"
             node.state.public_key = packet.protocolData.public_key.hex()
         elif packet.packetData.portnum == portnums_pb2.PortNum.TEXT_MESSAGE_APP:
             node = cls.get(packet.sender)
