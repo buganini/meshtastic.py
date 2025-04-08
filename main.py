@@ -2,6 +2,7 @@ import sys
 import radio
 import time
 from node import *
+from channel import *
 from packet import DEFAULT_KEY, MeshPacket
 import threading
 from common import *
@@ -28,6 +29,8 @@ class Client():
         self.device = device
         self.addr = addr
         self.state = State()
+        self.state.channels = []
+        self.state.channels.append(Channel(radio.Meshtastic.BROADCAST_ADDR.hex(), "Public Channel"))
         self.state.nodes = {}
         self.txPool = []
         self.thread = threading.Thread(target=self.looper, daemon=True)
@@ -111,6 +114,8 @@ class Client():
             sess.commit()
 
     def send(self, dest, message):
+        if type(dest) is str:
+            dest = bytes.fromhex(dest)
         packetPayload = mesh_pb2.Data()
         packetPayload.portnum = portnums_pb2.PortNum.TEXT_MESSAGE_APP
         packetPayload.payload = message.encode("utf-8")
@@ -130,7 +135,7 @@ class App(Application):
         self.client = client
         self.state = State()
         self.state.edit = ""
-        self.state.focus = None
+        self.state.focus = self.client.state.channels[0]
 
     def content(self):
         with Window(size=(640, 480)):
@@ -138,13 +143,19 @@ class App(Application):
                 with VBox().layout(weight=1):
                     with Scroll().layout(weight=1):
                         with VBox():
+                            for channel in self.client.state.channels:
+                                l = Label(f"{channel.state.name}").click(self.select, channel)
+                                if self.state.focus is channel:
+                                    l.style(bgColor=0x555555)
                             for node in self.client.state.nodes.values():
                                 if node.state.short_name is None:
                                     continue
-                                Label(f"{node.state.long_name}").click(self.selectNode, node)
+                                l = Label(f"{node.state.long_name}").click(self.select, node)
+                                if self.state.focus is node:
+                                    l.style(bgColor=0x555555)
                             Spacer()
 
-                    if self.state.focus:
+                    if isinstance(self.state.focus, Node):
                         with VBox():
                             Label(f"ID: {self.state.focus.node_id}")
                             Label(f"Short Name: {self.state.focus.state.short_name}")
@@ -171,11 +182,11 @@ class App(Application):
     def sendMessage(self, e):
         if self.state.edit == "":
             return
-        self.client.send(radio.Meshtastic.BROADCAST_ADDR, self.state.edit)
+        self.client.send(self.state.focus.id, self.state.edit)
         self.state.edit = ""
 
-    def selectNode(self, e, node):
-        self.state.focus = node
+    def select(self, e, item):
+        self.state.focus = item
 
 def main():
     from sx127x import SX127x
