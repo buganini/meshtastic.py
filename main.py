@@ -6,6 +6,9 @@ from packet import DEFAULT_KEY, MeshPacket
 import threading
 from common import *
 from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+from sqlalchemy import select
+import models
 import json
 
 DEVICE_HARDWARE = json.load(open(os.path.join(os.path.dirname(__file__), "Meshtastic-Android/app/src/main/assets/device_hardware.json")))
@@ -29,6 +32,22 @@ class Client():
         self.txPool = []
         self.thread = threading.Thread(target=self.looper, daemon=True)
         self.thread.start()
+        self.db = create_engine('sqlite:///meshtastic.db')
+        self.checkout()
+
+    def checkout(self):
+        with Session(self.db) as sess:
+            for n in sess.execute(select(models.Node).order_by(models.Node.id)).scalars():
+                node = Node(n.id)
+                node.state.short_name = n.short_name
+                node.state.long_name = n.long_name
+                node.state.macaddr = n.macaddr
+                node.state.hw_model = n.hw_model
+                node.state.public_key = n.public_key
+                node.state.lat = n.latitude
+                node.state.lng = n.longitude
+                node.state.alt = n.altitude
+                self.state.nodes[node.id] = node
 
     def looper(self):
         from datetime import datetime
@@ -55,7 +74,7 @@ class Client():
                     for p in prev:
                         p.acked = now
                 else:
-                    Node.handle(self.state.nodes, packet)
+                    Node.handle(self, packet)
                     rebroadcast = packet.rebroadcast()
                     if rebroadcast:
                         self.txPool.append(PendingTX(packet.packetID, rebroadcast, 2))
@@ -72,6 +91,24 @@ class Client():
                     self.device.send(p.payload)
                     p.last = now
                     p.retry -= 1
+
+    def updateNode(self, node):
+        with Session(self.db) as sess:
+            n = models.Node(
+                id=node.id,
+
+                short_name=node.state.short_name,
+                long_name=node.state.long_name,
+                macaddr=node.state.macaddr,
+                hw_model=node.state.hw_model,
+                public_key=node.state.public_key,
+
+                latitude=node.state.lat,
+                longitude=node.state.lng,
+                altitude=node.state.alt,
+            )
+            sess.merge(n)
+            sess.commit()
 
     def send(self, dest, message):
         packetPayload = mesh_pb2.Data()
@@ -102,14 +139,14 @@ class App(Application):
                     with Scroll().layout(weight=1):
                         with VBox():
                             for node in self.client.state.nodes.values():
-                                if node.state.id is None:
+                                if node.state.short_name is None:
                                     continue
                                 Label(f"{node.state.long_name}").click(self.selectNode, node)
                             Spacer()
 
                     if self.state.focus:
                         with VBox():
-                            Label(f"ID: {self.state.focus.state.id}")
+                            Label(f"ID: {self.state.focus.node_id}")
                             Label(f"Short Name: {self.state.focus.state.short_name}")
                             Label(f"Long Name: {self.state.focus.state.long_name}")
                             Label(f"MAC Address: {self.state.focus.state.macaddr}")
