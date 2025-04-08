@@ -5,6 +5,10 @@ from node import *
 from packet import DEFAULT_KEY, MeshPacket
 import threading
 from common import *
+from sqlalchemy import create_engine
+import json
+
+DEVICE_HARDWARE = json.load(open(os.path.join(os.path.dirname(__file__), "Meshtastic-Android/app/src/main/assets/device_hardware.json")))
 
 RETRY_INTERVAL = 7
 PACKET_LOOKBACK_TTL = 30
@@ -109,7 +113,14 @@ class App(Application):
                             Label(f"Short Name: {self.state.focus.state.short_name}")
                             Label(f"Long Name: {self.state.focus.state.long_name}")
                             Label(f"MAC Address: {self.state.focus.state.macaddr}")
-                            Label(f"Hardware Model: {self.state.focus.state.hw_model}")
+                            # hw_model = mesh_pb2.HardwareModel.Name(packet.protocolData.hw_model)
+                            models = [m for m in DEVICE_HARDWARE if m["hwModel"] == self.state.focus.state.hw_model]
+                            if len(models) > 0:
+                                model = models[0]
+                                hw_model = model["displayName"]
+                            else:
+                                hw_model = f"Unknown ({self.state.focus.state.hw_model})"
+                            Label(f"Hardware Model: {hw_model}")
                             Label(f"Latitude: {self.state.focus.state.lat}")
                             Label(f"Longitude: {self.state.focus.state.lng}")
                             Label(f"Altitude: {self.state.focus.state.alt}")
