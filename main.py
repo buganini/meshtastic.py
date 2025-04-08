@@ -189,6 +189,10 @@ class App(Application):
         self.state.focus = item
 
 def main():
+    from alembic.config import Config
+    from alembic import command
+    command.upgrade(Config(os.path.join(os.path.dirname(__file__), "alembic.ini")), "head")
+
     from sx127x import SX127x
 
     sx = SX127x(0)

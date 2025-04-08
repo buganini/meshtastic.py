@@ -3,10 +3,9 @@
 ![Hardware](images/hardware.jpg)
 
 
-# Init
+# Initialization
 ```
 pip3 install -r requirements.txt
-alembic upgrade head
 ```
 
 # Run
