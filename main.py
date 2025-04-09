@@ -39,7 +39,8 @@ class Client():
         self.state.macaddr = b"\x55\x66" + addr
         self.state.hw_model = 84
         self.state.is_licensed = False
-        self.state.public_key = bytes(random.randint(0, 255) for _ in range(32))
+        # self.state.public_key = bytes(random.randint(0, 255) for _ in range(32))
+        self.state.public_key = b''
 
         self.state.lat = 0
         self.state.lng = 0
