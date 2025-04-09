@@ -12,8 +12,8 @@ class MeshPacket:
     def new(cls, dest, sender, packet, aesKey):
         self = cls()
         self.aesKey = aesKey
-        self.dest = dest
-        self.sender = sender
+        self.dest = dest[::-1]
+        self.sender = sender[::-1]
         self.packetID = bytes(random.randint(0, 255) for _ in range(4))
         self.packetData = packet
         self.flags = 3

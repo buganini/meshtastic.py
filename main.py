@@ -159,7 +159,6 @@ class Client():
     def send(self, dest, message):
         if type(dest) is str:
             dest = bytes.fromhex(dest)
-        dest = dest[::-1]
         packetPayload = mesh_pb2.Data()
         packetPayload.portnum = portnums_pb2.PortNum.TEXT_MESSAGE_APP
         packetPayload.payload = message.encode("utf-8")
