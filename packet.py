@@ -16,7 +16,7 @@ class MeshPacket:
         self.sender = sender
         self.packetID = bytes(random.randint(0, 255) for _ in range(4))
         self.packetData = packet
-        self.flags = 3
+        self.hopLimit = 3
         self.wantAck = 0
         self.viaMQTT = 0
         self.hopStart = 3
@@ -32,6 +32,7 @@ class MeshPacket:
         cipher = Cipher(algorithms.AES(base64.b64decode(self.aesKey.encode("ascii"))), modes.CTR(nonce), backend=default_backend())
         encryptor = cipher.encryptor()
         self.encryptedPayload = encryptor.update(self.packetPayload) + encryptor.finalize()
+        self.flags = ((self.hopLimit & 0b111) << 5) | ((self.viaMQTT & 0b1) << 4) | ((self.wantAck & 0b1) << 3) | (self.hopLimit & 0b111)
         return self.dest + self.sender + self.packetID + bytes([self.flags]) + self.channelHash + self.nextHop + self.relayNode + self.encryptedPayload
 
     @classmethod
