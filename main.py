@@ -31,7 +31,7 @@ class PendingTX():
 class Client():
     def __init__(self, device, addr):
         self.device = device
-        self.addr = addr
+        self.addr = addr[::-1]
         self.state = State()
 
         self.state.short_name = "Test"
