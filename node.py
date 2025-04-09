@@ -1,6 +1,7 @@
 from meshtastic.protobuf import mesh_pb2, portnums_pb2
 from common import *
-import os
+from message import Message
+import time
 
 class Node():
     def __init__(self, id):
@@ -32,7 +33,7 @@ class Node():
         return node
 
     @classmethod
-    def handle(cls, master, packet):
+    def handle(cls, master, packet, timestamp):
         if not packet.packetData:
             return
         if packet.packetData.portnum == portnums_pb2.PortNum.POSITION_APP:
@@ -55,4 +56,5 @@ class Node():
             master.updateNode(node)
         elif packet.packetData.portnum == portnums_pb2.PortNum.TEXT_MESSAGE_APP:
             node = cls.get(master.state.nodes, packet.sender.hex())
-            node.state.messages.append(packet.packetData.payload.decode("utf-8"))
+            msg = Message(packet.dest.hex(), packet.sender.hex(), packet.packetData.payload.decode("utf-8"), timestamp)
+            node.state.messages.append(msg)

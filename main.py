@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 import models
 import json
+import os
 import random
 
 DEVICE_HARDWARE = json.load(open(os.path.join(os.path.dirname(__file__), "Meshtastic-Android/app/src/main/assets/device_hardware.json")))
@@ -73,8 +74,6 @@ class Client():
         while True:
             self.device.receive()
 
-            now = time.time()
-
             # print("Receive")
             crcError = self.device.wait_rx()
             # print("Wait rx")
@@ -91,13 +90,14 @@ class Client():
                 prev = [p for p in self.txPool if p.packetID == packet.packetID]
                 if prev:
                     for p in prev:
-                        p.acked = now
+                        p.acked = time.time()
                 else:
-                    Node.handle(self, packet)
+                    Node.handle(self, packet, time.time())
                     rebroadcast = packet.rebroadcast()
                     if rebroadcast:
                         self.txPool.append(PendingTX(packet.packetID, rebroadcast, 2))
 
+            now = time.time()
             self.txPool = [p for p in self.txPool if p.acked==0 or now - p.acked < PACKET_LOOKBACK_TTL]
 
             todo = [p for p in self.txPool if p.acked==0 and p.retry>0]
@@ -170,7 +170,10 @@ class Client():
         packetPayload.emoji = 0
         packetPayload.bitfield = 0
         packet = MeshPacket.new(dest, self.addr, packetPayload, DEFAULT_KEY)
+
         self.txPool.append(PendingTX(packet.packetID, packet.bytes, 3))
+        node = Node.get(self.state.nodes, dest.hex())
+        node.state.messages.append(Message(dest.hex(), self.addr.hex(), message, time.time()))
 
 class App(Application):
     def __init__(self, client):
@@ -221,7 +224,14 @@ class App(Application):
                         with VBox():
                             Spacer()
                             for message in self.state.focus.state.messages:
-                                Label(message)
+                                if message.sender == self.client.addr.hex():
+                                    with HBox():
+                                        Spacer()
+                                        Label(message.text)
+                                else:
+                                    with HBox():
+                                        Label(message.text)
+                                        Spacer()
                     with HBox():
                         TextField(self.state("edit")).layout(weight=1)
                         Button("Send").click(self.sendMessage)
