@@ -181,7 +181,7 @@ class App(Application):
         self.state.focus = self.client.state.channels[0]
 
     def content(self):
-        with Window(size=(640, 480)):
+        with Window(title="Meshtastic.py", size=(640, 480)):
             with HBox():
                 with VBox().layout(weight=1):
                     with Scroll().layout(weight=1):
