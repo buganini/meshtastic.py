@@ -214,7 +214,7 @@ class App(Application):
                                 l = Label(f"{channel.state.name}").click(self.select, channel)
                                 if self.state.focus is channel:
                                     l.style(bgColor=0x555555)
-                            for node in self.client.state.nodes.values():
+                            for node in sorted(self.client.state.nodes.values(), key=lambda n: (n.state.long_name or "\xff", n.id)):
                                 name = node.state.long_name
                                 if name is None:
                                     name = f"(!{node.id})"
