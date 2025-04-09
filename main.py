@@ -9,7 +9,7 @@ import meshtastic.protobuf.config_pb2
 from common import *
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, delete
 import models
 import json
 import os
@@ -170,6 +170,13 @@ class Client():
             sess.merge(n)
             sess.commit()
 
+    def forgetNode(self, node):
+        print("Forget", node.id)
+        with Session(self.db) as sess:
+            sess.execute(delete(models.Node).where(models.Node.id == node.id))
+            sess.commit()
+        self.state.nodes.pop(bytes.fromhex(node.id), None)
+
     def send(self, dest, message):
         if type(dest) is str:
             dest = bytes.fromhex(dest)
@@ -232,6 +239,7 @@ class App(Application):
                             Label(f"Latitude: {self.state.focus.state.lat}")
                             Label(f"Longitude: {self.state.focus.state.lng}")
                             Label(f"Altitude: {self.state.focus.state.alt}")
+                            Button("Forget").click(self.forgetNode, self.state.focus)
 
                 with VBox().layout(weight=3):
                     with Scroll().layout(weight=1).scrollY(Scroll.END):
@@ -249,6 +257,10 @@ class App(Application):
                     with HBox():
                         TextField(self.state("edit")).layout(weight=1)
                         Button("Send").click(self.sendMessage)
+
+    def forgetNode(self, e, node):
+        self.client.forgetNode(node)
+        self.state.focus = self.client.state.channels[0]
 
     def sendMessage(self, e):
         if self.state.edit == "":

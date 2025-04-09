@@ -28,7 +28,7 @@ class Node():
     def get(cls, pool, id):
         node = pool.get(id)
         if node is None:
-            node = cls(id)
+            node = cls(id.hex())
             pool[id] = node
         return node
 
