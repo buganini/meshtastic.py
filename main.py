@@ -176,7 +176,7 @@ class App(Application):
                 with VBox().layout(weight=3):
                     Spacer()
                     with HBox():
-                        TextField(self.state("edit"), self.state("edit"))
+                        TextField(self.state("edit"))
                         Button("Send").click(self.sendMessage)
 
     def sendMessage(self, e):
