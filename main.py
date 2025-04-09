@@ -217,7 +217,11 @@ class App(Application):
                             Label(f"Altitude: {self.state.focus.state.alt}")
 
                 with VBox().layout(weight=3):
-                    Spacer()
+                    with Scroll().layout(weight=1).scrollY(Scroll.END):
+                        with VBox():
+                            Spacer()
+                            for message in self.state.focus.state.messages:
+                                Label(message)
                     with HBox():
                         TextField(self.state("edit")).layout(weight=1)
                         Button("Send").click(self.sendMessage)
