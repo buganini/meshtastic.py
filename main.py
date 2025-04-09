@@ -215,9 +215,10 @@ class App(Application):
                                 if self.state.focus is channel:
                                     l.style(bgColor=0x555555)
                             for node in self.client.state.nodes.values():
-                                if node.state.short_name is None:
-                                    continue
-                                l = Label(f"{node.state.long_name}").click(self.select, node)
+                                name = node.state.long_name
+                                if name is None:
+                                    name = f"(!{node.id})"
+                                l = Label(name).click(self.select, node)
                                 if self.state.focus is node:
                                     l.style(bgColor=0x555555)
                             Spacer()
