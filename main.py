@@ -13,13 +13,18 @@ from sqlalchemy import select
 import models
 import json
 import os
-import random
+import configparser
 
-DEVICE_HARDWARE = json.load(open(os.path.join(os.path.dirname(__file__), "Meshtastic-Android/app/src/main/assets/device_hardware.json")))
+BASE_DIR = os.path.dirname(__file__)
+
+DEVICE_HARDWARE = json.load(open(os.path.join(BASE_DIR, "Meshtastic-Android/app/src/main/assets/device_hardware.json")))
 
 RETRY_INTERVAL = 7
 PACKET_LOOKBACK_TTL = 30
 NODE_INFO_REPORT_INTERVAL = 3600
+
+def bool_from_str(s):
+    return s.lower()[0] in "yt1" if s else False
 
 class PendingTX():
     def __init__(self, packetID, payload, retry):
@@ -30,18 +35,26 @@ class PendingTX():
         self.acked = 0
 
 class Client():
-    def __init__(self, device, addr):
+    def __init__(self, device, cfg):
         self.device = device
-        self.addr = addr[::-1]
         self.state = State()
 
-        self.state.short_name = "Test"
-        self.state.long_name = "Test 5566"
-        self.state.macaddr = b"\x55\x66" + addr
-        self.state.hw_model = 84
-        self.state.is_licensed = False
-        # self.state.public_key = bytes(random.randint(0, 255) for _ in range(32))
-        self.state.public_key = b''
+        self.addr = bytes.fromhex(cfg["macaddr"])[-4:][::-1]
+        self.mute = bool_from_str(cfg["mute"])
+        self.state.short_name = cfg["short_name"]
+        self.state.long_name = cfg["long_name"]
+        self.state.macaddr = bytes.fromhex(cfg["macaddr"])
+        self.state.hw_model = int(cfg["hw_model"])
+        self.state.is_licensed = bool_from_str(cfg["is_licensed"])
+        self.state.public_key = bytes.fromhex(cfg["public_key"])
+
+        print("Address", self.addr[::-1].hex())
+        print("Short Name", self.state.short_name)
+        print("Long Name", self.state.long_name)
+        print("MAC Address", self.state.macaddr.hex())
+        print("HW Model", self.state.hw_model)
+        print("Is Licensed", self.state.is_licensed)
+        print("Public Key", self.state.public_key.hex())
 
         self.state.lat = 0
         self.state.lng = 0
@@ -67,7 +80,7 @@ class Client():
                 node.state.lat = n.latitude
                 node.state.lng = n.longitude
                 node.state.alt = n.altitude
-                self.state.nodes[node.id] = node
+                self.state.nodes[bytes.fromhex(n.id)] = node
 
     def looper(self):
         from datetime import datetime
@@ -93,9 +106,10 @@ class Client():
                         p.acked = time.time()
                 else:
                     Node.handle(self, packet, time.time())
-                    rebroadcast = packet.rebroadcast()
-                    if rebroadcast:
-                        self.txPool.append(PendingTX(packet.packetID, rebroadcast, 2))
+                    if not self.mute:
+                        rebroadcast = packet.rebroadcast()
+                        if rebroadcast:
+                            self.txPool.append(PendingTX(packet.packetID, rebroadcast, 2))
 
             now = time.time()
             self.txPool = [p for p in self.txPool if p.acked==0 or now - p.acked < PACKET_LOOKBACK_TTL]
@@ -172,8 +186,8 @@ class Client():
         packet = MeshPacket.new(dest, self.addr, packetPayload, DEFAULT_KEY)
 
         self.txPool.append(PendingTX(packet.packetID, packet.bytes, 3))
-        node = Node.get(self.state.nodes, dest.hex())
-        node.state.messages.append(Message(dest.hex(), self.addr.hex(), message, time.time()))
+        node = Node.get(self.state.nodes, dest)
+        node.state.messages.append(Message(dest, self.addr, message, time.time()))
 
 class App(Application):
     def __init__(self, client):
@@ -224,7 +238,7 @@ class App(Application):
                         with VBox():
                             Spacer()
                             for message in self.state.focus.state.messages:
-                                if message.sender == self.client.addr.hex():
+                                if message.sender == self.client.addr:
                                     with HBox():
                                         Spacer()
                                         Label(message.text)
@@ -248,15 +262,23 @@ class App(Application):
 def main():
     from alembic.config import Config
     from alembic import command
-    command.upgrade(Config(os.path.join(os.path.dirname(__file__), "alembic.ini")), "head")
 
-    from sx127x import SX127x
+    command.upgrade(Config(os.path.join(BASE_DIR, "alembic.ini")), "head")
 
-    sx = SX127x(0)
-    sx.standby()
-    sx.setMeshtastic("TW", "LONG_FAST")
+    cfg = configparser.ConfigParser(inline_comment_prefixes="#")
+    cfg.read(os.path.join(BASE_DIR, "meshtastic.ini"))
+    print(dict(cfg["meshtastic"]))
 
-    client = Client(sx, b"\x55\x66\x77\x88")
+    adapter = cfg["interface"]["adapter"]
+    if adapter == "sx127x":
+        from sx127x import SX127x
+        sx = SX127x(0)
+        sx.standby()
+        sx.setMeshtastic(cfg["radio"]["region"], cfg["radio"]["preset"], cfg["radio"]["slot"])
+    else:
+        raise Exception(f"Unsupported adapter: {adapter}")
+
+    client = Client(sx, cfg["meshtastic"])
 
     app = App(client)
     app.run()

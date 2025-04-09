@@ -222,17 +222,23 @@ class SX127x:
                 print("TX Done")
                 break
 
-    def setMeshtastic(self, region="TW", preset="LONG_FAST"):
+    def setMeshtastic(self, region="TW", preset="LONG_FAST", slot=None):
         regionCfg = Meshtastic.REGION.get(region, "TW")
         presetCfg = Meshtastic.PRESETS.get(preset, "LONG_FAST")
 
         print("regionCfg", regionCfg)
         print("presetCfg", presetCfg)
 
-        bw = LoRa.BandWidthMap[presetCfg["bw"]]
-        defaultFreq = regionCfg["startFreq"] + bw/2 + bw*(regionCfg["defaultSlot"]-1)
+        if not slot:
+            slot = regionCfg["defaultSlot"]
 
-        self.setFrequency(defaultFreq)
+        bw = LoRa.BandWidthMap[presetCfg["bw"]]
+        freq = regionCfg["startFreq"] + bw/2 + bw*(slot-1)
+
+        if freq > regionCfg["endFreq"]:
+            raise Exception(f"Frequency {freq} out of range {regionCfg['startFreq']} - {regionCfg['endFreq']}")
+
+        self.setFrequency(freq)
 
         self.setBandwidth(presetCfg["bw"])
         self.setSpreadingFactor(presetCfg["sf"])

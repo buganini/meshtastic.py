@@ -2,6 +2,7 @@ pyftdi
 cryptography
 meshtastic
 QPUIQ
+textual
 PySide6-Essentials
 SQLAlchemy
 alembic

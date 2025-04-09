@@ -39,7 +39,7 @@ class Node():
         if packet.packetData.portnum == portnums_pb2.PortNum.POSITION_APP:
             if not packet.protocolData:
                 return
-            node = cls.get(master.state.nodes, packet.sender.hex())
+            node = cls.get(master.state.nodes, packet.sender)
             node.state.lat = packet.protocolData.latitude_i
             node.state.lng = packet.protocolData.longitude_i
             node.state.alt = packet.protocolData.altitude
@@ -47,7 +47,7 @@ class Node():
         elif packet.packetData.portnum == portnums_pb2.PortNum.NODEINFO_APP:
             if not packet.protocolData:
                 return
-            node = cls.get(master.state.nodes, packet.sender.hex())
+            node = cls.get(master.state.nodes, packet.sender)
             node.state.long_name = packet.protocolData.long_name
             node.state.short_name = packet.protocolData.short_name
             node.state.macaddr = packet.protocolData.macaddr.hex()
@@ -55,6 +55,6 @@ class Node():
             node.state.public_key = packet.protocolData.public_key.hex()
             master.updateNode(node)
         elif packet.packetData.portnum == portnums_pb2.PortNum.TEXT_MESSAGE_APP:
-            node = cls.get(master.state.nodes, packet.sender.hex())
-            msg = Message(packet.dest.hex(), packet.sender.hex(), packet.packetData.payload.decode("utf-8"), timestamp)
+            node = cls.get(master.state.nodes, packet.sender)
+            msg = Message(packet.dest, packet.sender, packet.packetData.payload.decode("utf-8"), timestamp)
             node.state.messages.append(msg)
