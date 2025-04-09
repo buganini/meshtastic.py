@@ -109,7 +109,7 @@ class MeshPacket:
         print("Packet Payload:", self.packetPayload)
 
         if self.packetData:
-            print("Packet Data: {")
+            print(f"Packet Data: {type(self.packetData)} {{")
             for descriptor in self.packetData.DESCRIPTOR.fields:
                 value = getattr(self.packetData, descriptor.name)
                 if descriptor.type == descriptor.TYPE_ENUM:
@@ -124,7 +124,7 @@ class MeshPacket:
             print("Protocol Payload:", self.packetData.payload)
 
         if self.protocolData:
-            print("Protocol Data: {")
+            print(f"Protocol Data: {type(self.protocolData)} {{")
             for descriptor in self.protocolData.DESCRIPTOR.fields:
                 value = getattr(self.protocolData, descriptor.name)
                 if descriptor.type == descriptor.TYPE_ENUM:
