@@ -5,17 +5,21 @@ from node import *
 from channel import *
 from packet import DEFAULT_KEY, MeshPacket
 import threading
+import meshtastic.protobuf.config_pb2
 from common import *
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 import models
 import json
+import random
 
 DEVICE_HARDWARE = json.load(open(os.path.join(os.path.dirname(__file__), "Meshtastic-Android/app/src/main/assets/device_hardware.json")))
 
 RETRY_INTERVAL = 7
 PACKET_LOOKBACK_TTL = 30
+NODE_INFO_REPORT_INTERVAL = 3600
+
 class PendingTX():
     def __init__(self, packetID, payload, retry):
         self.packetID = packetID
@@ -29,12 +33,23 @@ class Client():
         self.device = device
         self.addr = addr
         self.state = State()
+
+        self.state.short_name = "Test"
+        self.state.long_name = "Test 5566"
+        self.state.macaddr = b"\x55\x66" + addr
+        self.state.hw_model = 84
+        self.state.is_licensed = False
+        self.state.public_key = bytes(random.randint(0, 255) for _ in range(32))
+
+        self.state.lat = 0
+        self.state.lng = 0
         self.state.channels = []
         self.state.channels.append(Channel(radio.Meshtastic.BROADCAST_ADDR.hex(), "Public Channel"))
         self.state.nodes = {}
         self.txPool = []
         self.thread = threading.Thread(target=self.looper, daemon=True)
         self.thread.start()
+        self.last_node_info_report = 0
         self.db = create_engine('sqlite:///meshtastic.db')
         self.checkout()
 
@@ -94,6 +109,33 @@ class Client():
                     self.device.send(p.payload)
                     p.last = now
                     p.retry -= 1
+            elif now - self.last_node_info_report > NODE_INFO_REPORT_INTERVAL:
+                self.last_node_info_report = now
+                self.sendNodeInfo()
+
+    def sendNodeInfo(self):
+        packetPayload = mesh_pb2.Data()
+        packetPayload.portnum = portnums_pb2.PortNum.NODEINFO_APP
+        user = mesh_pb2.User()
+        user.id = "!" + self.addr.hex()
+        user.short_name = self.state.short_name
+        user.long_name = self.state.long_name
+        user.macaddr = self.state.macaddr
+        user.hw_model = self.state.hw_model
+        user.is_licensed = self.state.is_licensed
+        user.role = meshtastic.protobuf.config_pb2.Config.DeviceConfig.Role.CLIENT
+        user.public_key = self.state.public_key
+
+        packetPayload.payload = user.SerializeToString()
+        packetPayload.want_response = False
+        packetPayload.dest = 0
+        packetPayload.source = 0
+        packetPayload.request_id = 0
+        packetPayload.reply_id = 0
+        packetPayload.emoji = 0
+        packetPayload.bitfield = 0
+        packet = MeshPacket.new(radio.Meshtastic.BROADCAST_ADDR, self.addr, packetPayload, DEFAULT_KEY)
+        self.txPool.append(PendingTX(packet.packetID, packet.bytes, 2))
 
     def updateNode(self, node):
         with Session(self.db) as sess:
@@ -116,6 +158,7 @@ class Client():
     def send(self, dest, message):
         if type(dest) is str:
             dest = bytes.fromhex(dest)
+        dest = dest[::-1]
         packetPayload = mesh_pb2.Data()
         packetPayload.portnum = portnums_pb2.PortNum.TEXT_MESSAGE_APP
         packetPayload.payload = message.encode("utf-8")
@@ -199,7 +242,7 @@ def main():
     sx.standby()
     sx.setMeshtastic("TW", "LONG_FAST")
 
-    client = Client(sx, b"\x66\x55\x66\x55")
+    client = Client(sx, b"\x55\x66\x77\x88")
 
     app = App(client)
     app.run()
