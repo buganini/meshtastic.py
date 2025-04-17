@@ -106,7 +106,9 @@ class SX127x:
             if irq & SX127x.IRQ.RX_DONE:
                 self.slave.write([0x80 | SX127x.REG_IRQFLAGS, SX127x.IRQ.RX_DONE])
                 return True
+
             time.sleep(0.1)
+        return None
 
     def setFrequency(self, freq):
         frf = int(freq * (2**19) / SX127x.Fxosc)

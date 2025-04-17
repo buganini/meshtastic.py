@@ -53,6 +53,7 @@ class SX126x:
     CMD_GET_IRQ_STATUS = 0x12
     CMD_GET_RX_BUFFER_STATUS = 0x13
     CMD_READ_BUFFER = 0x1E
+    CMD_SET_TX_PARAMS = 0x8E
     CMD_SET_BUFFER_BASE_ADDR = 0x8F
     CMD_SET_DIO3_AS_TXCO_CTRL = 0x97
     CMD_SET_DIO2_AS_RF_SWITCH_CTRL = 0x9D
@@ -106,11 +107,17 @@ class SX126x:
         # Ra-01S / Ra-01SH use only LDO in all modes.
         self.setCommand(SX126x.CMD_SET_REGULATOR_MODE, 0x00)
 
+        # Workaround: 15.2 Better Resistance of the SX1262 Tx to Antenna Mismatch
+        value = self.readRegister(0x08D8, 1)
+        value = value[0] | 0x1E
+        self.writeRegister(0x08D8, value)
+
         # Enable all IRQs
         self.setCommand(SX126x.CMD_SET_DIO_IRQ_PARAMS, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
 
         self.setCommand(SX126x.CMD_STOP_TIMER_ON_PREAMBLE, 0x0)
         self.setCommand(SX126x.CMD_SET_PA_CONFIG, 0x04, 0x07, 0x00, 0x01)
+        self.setCommand(SX126x.CMD_SET_TX_PARAMS, 0x16, 0x07)
 
     def getCommand(self, op, readlen):
         cmd = [op] + [0x0] * (readlen + 1)
@@ -153,6 +160,11 @@ class SX126x:
         # print(f"Read buffer <<", [f"{x:02X}" for x in ret])
         return ret[3:]
 
+    def writeBuffer(self, addr, data):
+        cmd = [SX126x.CMD_WRITE_BUFFER, addr] + list(data)
+        ret = self.slave.write(cmd)
+        time.sleep(0.001)
+
     def getStatus(self):
         cmd = [0xC0, 0x00]
         # print(f"Get status", [f"{x:02X}" for x in cmd])
@@ -161,20 +173,27 @@ class SX126x:
         time.sleep(0.001)
         return ret[1]
 
-    def wait_rx(self):
+    def wait_rx(self, timeout=3):
         """
         Return:
             True if RX_DONE
             False if CRC_ERROR
             None if RX_TIMEOUT
         """
-        while True:
+        t0 = time.time()
+        while time.time() - t0 < timeout:
             irq_status = self.getCommand(SX126x.CMD_GET_IRQ_STATUS, 2)
             irq = (irq_status[0] << 8) | irq_status[1]
             # if irq != 0:
             #     print("irq_flags", f"{irq:016b}")
 
             if irq & SX126x.IRQ.TIMEOUT:
+                # Workaround: 15.3 Implicit Header Mode Timeout Behavior
+                self.writeRegister(0x0920, 0x00)
+                value = self.readRegister(0x0944, 1)
+                value = value[0] | 0x02
+                self.writeRegister(0x0944, value)
+
                 self.setCommand(SX126x.CMD_CLEAR_IRQ_STATUS, 0xFF, 0xFF)
                 return  None
             if irq & SX126x.IRQ.CRC_ERROR:
@@ -185,6 +204,7 @@ class SX126x:
                 return  True
 
             time.sleep(0.1)
+        return None
 
     def setFrequency(self, freq):
         frf = int(freq * (2**25) / SX126x.Fxosc)
@@ -213,16 +233,6 @@ class SX126x:
 
     def setSpreadingFactor(self, sf: LoRa.SpreadingFactor):
         self.sf = sf
-
-    def setPacketParams(self):
-        self.setCommand(SX126x.CMD_SET_PACKET_PARAMS,
-                          (self.preambleLength >> 8) & 0xFF,
-                          self.preambleLength & 0xFF,
-                          [0, 1][self.implicitHeader],
-                          0xFF,
-                          [0, 1][self.crc],
-                          0x00 # Standard IQ
-                        )
 
     def setTxContinuous(self, txCont: bool):
         self.txCont = txCont
@@ -259,7 +269,14 @@ class SX126x:
 
     def receive(self):
         self.setModulationParams()
-        self.setPacketParams()
+        self.setCommand(SX126x.CMD_SET_PACKET_PARAMS,
+                          (self.preambleLength >> 8) & 0xFF,
+                          self.preambleLength & 0xFF,
+                          [0, 1][self.implicitHeader],
+                          0xFF,
+                          [0, 1][self.crc],
+                          0x00 # Standard IQ
+                        )
 
         # Clear IRQ status
         self.setCommand(SX126x.CMD_CLEAR_IRQ_STATUS, 0xFF, 0xFF)
@@ -276,8 +293,36 @@ class SX126x:
         return bytes(rx_data)
 
     def send(self, data):
-        print("Send not implemented")
-        return
+        print("Send", data, len(data))
+        self.standby()
+
+        # Workaround: 15.1 Modulation Quality with 500 kHz LoRa® Bandwidth
+        if self.bw == LoRa.BandWidth.BW_500K:
+            value = self.readRegister(0x0889, 1)
+            value = value[0] & 0xFB
+            self.writeRegister(0x0889, value)
+
+        self.setCommand(SX126x.CMD_SET_PACKET_PARAMS,
+                          (self.preambleLength >> 8) & 0xFF,
+                          self.preambleLength & 0xFF,
+                          [0, 1][self.implicitHeader],
+                          len(data),
+                          [0, 1][self.crc],
+                          0x00 # Standard IQ
+                        )
+
+        self.setCommand(SX126x.CMD_SET_BUFFER_BASE_ADDR, 0x00, 0x00)
+        self.writeBuffer(0x00, data)
+        self.setCommand(SX126x.CMD_SET_TX, 0x00, 0x00, 0x00)
+
+        while True:
+            irq_status = self.getCommand(SX126x.CMD_GET_IRQ_STATUS, 2)
+            irq = (irq_status[0] << 8) | irq_status[1]
+
+            if irq & SX126x.IRQ.TX_DONE:
+                self.setCommand(SX126x.CMD_CLEAR_IRQ_STATUS, 0xFF, 0xFF)
+                print("TX Done")
+                break
 
     def setMeshtastic(self, region="TW", preset="LONG_FAST", slot=None):
         regionCfg = Meshtastic.REGION.get(region, "TW")
