@@ -1,7 +1,10 @@
 # Hardware
-* FT232H + SX127x
+* FT232H + SX127x/SX126x
 ![Hardware](images/hardware.jpg)
 
+* Tested with:
+    * Ra-01H (SX1276)
+    * Ra-01SH (SX1262)
 
 # Initialization
 ```
