@@ -87,7 +87,8 @@ class SX126x:
         time.sleep(0.2)
 
         version = self.readRegister(0x0320, 16)
-        print("version", version)
+        # print("version", version)
+
         self.bw = LoRa.BandWidth.BW_125K
         self.cr = LoRa.CodingRate.CR_4_5
         self.implicitHeader = False
@@ -121,7 +122,7 @@ class SX126x:
 
     def setCommand(self, op, *args):
         cmd = [op, *args]
-        print(f"Set command", [f"{x:02X}" for x in cmd])
+        # print(f"Set command", [f"{x:02X}" for x in cmd])
         # ret = self.slave.exchange(cmd, len(cmd), duplex=True)
         ret = self.slave.write(cmd)
         time.sleep(0.001)
@@ -140,16 +141,16 @@ class SX126x:
         addrh = (addr >> 8) & 0xFF
         addrl = addr & 0xFF
         cmd = [SX126x.CMD_WRITE_REGISTER, addrh, addrl, *data]
-        print(f"Write register", [f"{x:02X}" for x in cmd])
+        # print(f"Write register", [f"{x:02X}" for x in cmd])
         # ret = self.slave.exchange(cmd, len(cmd), duplex=True)
         ret = self.slave.write(cmd)
         time.sleep(0.001)
 
     def readBuffer(self, addr, readlen):
         cmd = [SX126x.CMD_READ_BUFFER, addr] + [0x0] * (readlen + 1)
-        print(f"Read buffer", [f"{x:02X}" for x in cmd])
+        # print(f"Read buffer", [f"{x:02X}" for x in cmd])
         ret = self.slave.exchange(cmd, len(cmd), duplex=True)
-        print(f"Read buffer <<", [f"{x:02X}" for x in ret])
+        # print(f"Read buffer <<", [f"{x:02X}" for x in ret])
         return ret[3:]
 
     def getStatus(self):
@@ -188,7 +189,7 @@ class SX126x:
     def setFrequency(self, freq):
         frf = int(freq * (2**25) / SX126x.Fxosc)
         frf = ((frf >> 24) & 0xFF), ((frf >> 16) & 0xFF), ((frf >> 8) & 0xFF), (frf & 0xFF)
-        print("FRF", freq, frf)
+        # print("FRF", freq, frf)
         self.setCommand(SX126x.CMD_SET_RF_FREQUENCY, frf[0], frf[1], frf[2], frf[3])
 
     def setSync(self, value = 0x12):
@@ -269,11 +270,10 @@ class SX126x:
     def read_payload(self):
         # Get packet status
         pkt_len, rx_buf_addr = self.getCommand(SX126x.CMD_GET_RX_BUFFER_STATUS, 2)
-        print("pkt_len", pkt_len, "rx_buf_addr", rx_buf_addr)
 
         # Read the received packet
         rx_data = self.readBuffer(rx_buf_addr, pkt_len)
-        return rx_data
+        return bytes(rx_data)
 
     def send(self, data):
         print("Send not implemented")
