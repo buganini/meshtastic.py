@@ -279,10 +279,10 @@ if __name__ == "__main__":
     if action == "rx":
         sx.receive()
         while True:
-            crcError = sx.wait_rx()
-            if crcError is None:
+            ok = sx.wait_rx()
+            if ok is None:
                 print("Timeout")
                 continue
 
             data = sx.read_payload()
-            print(datetime.now().strftime("[%Y-%m-%d %H:%M:%S]"), "NG" if crcError else "OK", data)
+            print(datetime.now().strftime("[%Y-%m-%d %H:%M:%S]"), "OK" if ok else "NG", data)

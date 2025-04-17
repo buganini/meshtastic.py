@@ -88,12 +88,12 @@ class Client():
             self.device.receive()
 
             # print("Receive")
-            crcError = self.device.wait_rx()
+            ok = self.device.wait_rx()
             # print("Wait rx")
 
-            if crcError is not None:
+            if ok is not None:
                 payload = self.device.read_payload()
-                print(datetime.now().strftime("[%Y-%m-%d %H:%M:%S]"), "NG" if crcError else "OK", payload)
+                print(datetime.now().strftime("[%Y-%m-%d %H:%M:%S]"), "OK" if ok else "NG", payload)
                 if len(payload) < 16:
                     continue
 
