@@ -288,6 +288,11 @@ def main():
         sx = SX127x(0)
         sx.standby()
         sx.setMeshtastic(cfg["radio"]["region"], cfg["radio"]["preset"], cfg["radio"]["slot"])
+    elif adapter == "sx126x":
+        from sx126x import SX126x
+        sx = SX126x(0)
+        sx.standby()
+        sx.setMeshtastic(cfg["radio"]["region"], cfg["radio"]["preset"], cfg["radio"]["slot"])
     else:
         raise Exception(f"Unsupported adapter: {adapter}")
 
