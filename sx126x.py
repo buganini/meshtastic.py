@@ -1,6 +1,7 @@
 import time
 from enum import IntEnum
 from radio import LoRa, Meshtastic
+from common import bool_from_str
 
 class SX126x:
     GPIO_RST = 1<<4
@@ -64,7 +65,10 @@ class SX126x:
 
     PACKET_TYPE_LORA = 0x01
 
-    def __init__(self, device=None):
+    CFG_DIO2_AS_RF_SWITCH_CTRL = "dio2_as_rf_switch_ctrl"
+    CFG_REGULATOR_MODE = "regulator_mode"
+
+    def __init__(self, device=None, params=None):
         from pyftdi.usbtools import UsbTools
         from pyftdi.ftdi import Ftdi
         from pyftdi.spi import SpiController
@@ -75,6 +79,13 @@ class SX126x:
             devs = [f'ftdi://{d[0].vid}:{d[0].pid}:{d[0].bus}:{d[0].address}/1' for d in Ftdi.list_devices()]
             print(devs)
             device = devs[device]
+
+        if params is None:
+            params = {}
+        params = dict(params)
+        params[SX126x.CFG_DIO2_AS_RF_SWITCH_CTRL] = bool_from_str( params.get(SX126x.CFG_DIO2_AS_RF_SWITCH_CTRL, "1"))
+        params[SX126x.CFG_REGULATOR_MODE] = int(params.get(SX126x.CFG_REGULATOR_MODE, "0"), 0)
+        self.params = params
 
         self.spi = SpiController()
         self.spi.configure(device)
@@ -101,11 +112,10 @@ class SX126x:
 
         self.standby()
 
-        # Ra-01S / Ra-01SH use DIO2 to control RF switch
-        self.setCommand(SX126x.CMD_SET_DIO2_AS_RF_SWITCH_CTRL, 0x01)
+        if self.params[SX126x.CFG_DIO2_AS_RF_SWITCH_CTRL]:
+            self.setCommand(SX126x.CMD_SET_DIO2_AS_RF_SWITCH_CTRL, 0x01)
 
-        # Ra-01S / Ra-01SH use only LDO in all modes.
-        self.setCommand(SX126x.CMD_SET_REGULATOR_MODE, 0x00)
+        self.setCommand(SX126x.CMD_SET_REGULATOR_MODE, self.params[SX126x.CFG_REGULATOR_MODE])
 
         # Workaround: 15.2 Better Resistance of the SX1262 Tx to Antenna Mismatch
         value = self.readRegister(0x08D8, 1)

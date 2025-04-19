@@ -23,9 +23,6 @@ RETRY_INTERVAL = 7
 PACKET_LOOKBACK_TTL = 30
 NODE_INFO_REPORT_INTERVAL = 3600
 
-def bool_from_str(s):
-    return s.lower()[0] in "yt1" if s else False
-
 class PendingTX():
     def __init__(self, packetID, payload, retry):
         self.packetID = packetID
@@ -282,19 +279,20 @@ def main():
     cfg.read(os.path.join(BASE_DIR, "meshtastic.ini"))
     print(dict(cfg["meshtastic"]))
 
-    adapter = cfg["interface"]["adapter"]
-    if adapter == "sx127x":
+    transceiver = cfg["interface"]["transceiver"]
+    if transceiver == "sx127x":
         from sx127x import SX127x
         sx = SX127x(0)
         sx.standby()
         sx.setMeshtastic(cfg["radio"]["region"], cfg["radio"]["preset"], cfg["radio"]["slot"])
-    elif adapter == "sx126x":
+    elif transceiver == "sx126x":
         from sx126x import SX126x
-        sx = SX126x(0)
+        xcvr_cfg = cfg["sx126x"] if "sx126x" in cfg else {}
+        sx = SX126x(0, xcvr_cfg)
         sx.standby()
         sx.setMeshtastic(cfg["radio"]["region"], cfg["radio"]["preset"], cfg["radio"]["slot"])
     else:
-        raise Exception(f"Unsupported adapter: {adapter}")
+        raise Exception(f"Unsupported transceiver: {transceiver}")
 
     client = Client(sx, cfg["meshtastic"])
 
