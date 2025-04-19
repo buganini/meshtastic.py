@@ -209,7 +209,7 @@ class SX127x:
         pktSnr = self.slave.exchange([SX127x.REG_PKT_SNR_VALUE], 1)[0]
         pktRssi = self.slave.exchange([SX127x.REG_PKT_RSSI_VALUE], 1)[0]
         pktSnr = comp2(pktSnr) / 4
-        pktRssi = -157 + pktRssi
+        pktRssi = -157 + pktRssi # XXX
         return pktRssi, pktSnr
 
     def send(self, data):
