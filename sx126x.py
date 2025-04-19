@@ -1,7 +1,7 @@
 import time
 from enum import IntEnum
 from radio import LoRa, Meshtastic
-from common import bool_from_str
+from common import bool_from_str, comp2
 
 class SX126x:
     GPIO_RST = 1<<4
@@ -53,6 +53,7 @@ class SX126x:
     CMD_WRITE_BUFFER = 0x0E
     CMD_GET_IRQ_STATUS = 0x12
     CMD_GET_RX_BUFFER_STATUS = 0x13
+    CMD_GET_PACKET_STATUS = 0x14
     CMD_READ_BUFFER = 0x1E
     CMD_SET_TX_PARAMS = 0x8E
     CMD_SET_BUFFER_BASE_ADDR = 0x8F
@@ -301,6 +302,14 @@ class SX126x:
         # Read the received packet
         rx_data = self.readBuffer(rx_buf_addr, pkt_len)
         return bytes(rx_data)
+
+    def readRssiSnr(self):
+        status = self.getCommand(SX126x.CMD_GET_PACKET_STATUS, 3)
+        rssiPkt = -status[0]/2
+        snrPkt = comp2(status[1])/4
+        signalRssiPkt = -status[2]/2
+        print(rssiPkt, snrPkt)
+        return rssiPkt, snrPkt
 
     def send(self, data):
         print("Send", data, len(data))

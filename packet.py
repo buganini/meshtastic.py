@@ -23,6 +23,8 @@ class MeshPacket:
         self.channelHash = b"\x08"
         self.nextHop = b"\x00"
         self.relayNode = b"\x00"
+        self.rssi = None
+        self.snr = None
         return self
 
     @property

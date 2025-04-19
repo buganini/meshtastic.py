@@ -18,6 +18,9 @@ class Node():
         self.state.lng = None
         self.state.alt = None
 
+        self.state.rssi = None
+        self.state.snr = None
+
         self.state.messages = []
 
     @property
@@ -44,6 +47,8 @@ class Node():
             node.state.lng = packet.protocolData.longitude_i
             node.state.alt = packet.protocolData.altitude
             master.updateNode(node)
+            node.state.rssi = packet.rssi
+            node.state.snr = packet.snr
         elif packet.packetData.portnum == portnums_pb2.PortNum.NODEINFO_APP:
             if not packet.protocolData:
                 return
@@ -53,8 +58,12 @@ class Node():
             node.state.macaddr = packet.protocolData.macaddr.hex()
             node.state.hw_model = packet.protocolData.hw_model
             node.state.public_key = packet.protocolData.public_key.hex()
+            node.state.rssi = packet.rssi
+            node.state.snr = packet.snr
             master.updateNode(node)
         elif packet.packetData.portnum == portnums_pb2.PortNum.TEXT_MESSAGE_APP:
             node = cls.get(master.state.nodes, packet.sender)
             msg = Message(packet.dest, packet.sender, packet.packetData.payload.decode("utf-8"), timestamp)
+            node.state.rssi = packet.rssi
+            node.state.snr = packet.snr
             node.state.messages.append(msg)

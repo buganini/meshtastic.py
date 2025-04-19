@@ -1,6 +1,7 @@
 import time
 from enum import IntEnum
 from radio import LoRa, Meshtastic
+from common import comp2
 
 class SX127x:
     GPIO_RST = 1<<4
@@ -18,6 +19,8 @@ class SX127x:
     REG_FIFORXCURRENTADDR = 0x10
     REG_IRQFLAGS = 0x12
     REG_RXNBBYTES = 0x13
+    REG_PKT_SNR_VALUE = 0x19
+    REG_PKT_RSSI_VALUE = 0x1A
     REG_MODEMCONFIG1 = 0x1D
     REG_MODEMCONFIG2 = 0x1E
     REG_PREAMBLE = 0x20
@@ -201,6 +204,13 @@ class SX127x:
 
         payload = bytes(payload)
         return payload
+
+    def readRssiSnr(self):
+        pktSnr = self.slave.exchange([SX127x.REG_PKT_SNR_VALUE], 1)[0]
+        pktRssi = self.slave.exchange([SX127x.REG_PKT_RSSI_VALUE], 1)[0]
+        pktSnr = comp2(pktSnr) / 4
+        pktRssi = -157 + pktRssi
+        return pktRssi, pktSnr
 
     def send(self, data):
         # print("Send", data, len(data))

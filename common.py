@@ -6,3 +6,6 @@ else:
 
 def bool_from_str(s):
     return s.lower()[0] in "yt1" if s else False
+
+def comp2(v):
+    return v - 256 if v & 0x80 else v

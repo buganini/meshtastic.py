@@ -97,6 +97,8 @@ class Client():
                 packet = MeshPacket.parse(payload, DEFAULT_KEY)
                 packet.print()
 
+                packet.rssi, packet.snr = self.device.readRssiSnr()
+
                 prev = [p for p in self.txPool if p.packetID == packet.packetID]
                 if prev:
                     for p in prev:
@@ -237,6 +239,8 @@ class App(Application):
                             Label(f"Latitude: {self.state.focus.state.lat}")
                             Label(f"Longitude: {self.state.focus.state.lng}")
                             Label(f"Altitude: {self.state.focus.state.alt}")
+                            Label(f"RSSI: {self.state.focus.state.rssi} dBm")
+                            Label(f"SNR: {self.state.focus.state.snr} dB")
                             Button("Forget").click(self.forgetNode, self.state.focus)
 
                 with VBox().layout(weight=3):
