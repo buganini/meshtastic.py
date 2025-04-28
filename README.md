@@ -28,3 +28,6 @@ pip3 install -r requirements.txt
 python3 main.py # GUI
 python3 main.py --textual # TUI
 ```
+
+# TODO
+* CAD
